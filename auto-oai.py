@@ -15,12 +15,11 @@ def exe_cmd(cmd):
         
     except:    
         print("errno_num")
-
-def run_kafka(kafka_conf):
-    #exe_cmd("cd /home/user/app/kafka_2.11-2.1.0;")
+"""
+def run_kafka(args):
     cmd_zk = "xterm -hold -e "
-    cmd_zk += kafka_conf + "/bin/zookeeper-server-start.sh "
-    cmd_zk += kafka_conf + "/config/zookeeper.properties &"    
+    cmd_zk += args.kafkaDir + "/bin/zookeeper-server-start.sh "
+    cmd_zk += args.kafkaDir + "/config/zookeeper.properties &"    
     
     cmd_brokers="xterm -hold -e "
     cmd_brokers += kafka_conf + "/bin/kafka-server-start.sh "
@@ -60,34 +59,65 @@ def run_enb(enb_conf):
     cmd ="source /home/user/openairinterface5g/oaienv"#; sudo -E ~/openairinterface5g/cmake_targets/lte_build_oai/build/lte-softmodem -O ~/openairinterface5g/conf/enb.band7.tm1.25PRB.usrpb210.conf 
     
     exe_cmd(cmd)
-    time.sleep(1)
+"""
 
+def run_zookeeper(args):        
+    cmd = "xterm -hold -e "
+    cmd += args.kafkaDir + "/bin/zookeeper-server-start.sh "
+    cmd += args.kafkaDir + "/config/zookeeper.properties &"
+    exe_cmd(cmd)
 
-    pass
+def run_brokers(args):
+    cmd = "xterm -hold -e "
+    cmd += args.kafkaDir + "/bin/kafka-server-start.sh "
+    cmd += args.kafkaDir + "/config/server.properties &"
+    exe_cmd(cmd)
 
+def run_producer(args):        
+    cmd = "xterm -hold -e "
+    cmd += args.kafkaDir + "/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic "+ args.kafkaTopic +"&"
+    exe_cmd(cmd)
 
-def main(kafka_dir, spgw_nic, enb_conf):
-    run_epc(spgw_nic)
-    time.sleep(1)
-    run_enb(enb_conf)
-    #run_kafka(kafka_dir)
-    #
-    #output, error = process.communicate()
+def run_consumer(args):
+    cmd = "xterm -hold -e "
+    cmd += args.kafkaDir + "/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic "+ args.kafkaTopic +"&"
+    exe_cmd(cmd)
+
+def main(args):
+    if args.runZookeeper==None or args.runZookeeper=="true":
+        run_zookeeper(args)    
+        time.sleep(1)
+
+    if args.runBrokers==None or args.runBrokers=="true":
+        run_brokers(args)    
+        time.sleep(1)
+
+    if args.runProduer != None or args.runBrokers=="true":
+        run_producer(args)    
+        time.sleep(1)
+
+    if args.runConsumer != None or args.runBrokers=="true":
+        run_consumer(args)    
+        time.sleep(1)
 
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kafkaDir","-kd",help="root directory of Kafka")
-    parser.add_argument("--kafkaTopic","-kt",help="Kafka topic")
+    parser.add_argument("--kafkaDir","-dir",help="root directory of Kafka")
+    parser.add_argument("--runZookeeper","-zookeeper",help="run zookeeper")
+    parser.add_argument("--runBrokers","-brokers", help="run brokers")
+    parser.add_argument("--runProduer","-produer",help="run producer")
+    parser.add_argument("--runConsumer","-consumer",help="run consumer")
+    parser.add_argument("--kafkaTopic","-topic",help="Kafka topic")
     parser.add_argument("--spgwNic","-nic",help="network interface for spgw")
     parser.add_argument("--enb","-e",help="enb autorun")
     args = parser.parse_args()
 
-    
     if args.kafkaDir==None:
-        args.kafkaDir = "/home/user/app/kafka_2.11-2.1.0"
+        args.kafkaDir = "~/app/kafka_2.11-2.1.0"
+    
+    if args.kafkaTopic==None:
+        args.kafkaTopic = "oai"
+
     if args.spgwNic == None:
         args.spgwNic = "wlp2s0"
-    if args.enb == None:
-        pass
-
-    main(args.kafkaDir, args.spgwNic,args.enb )
+    main(args)
