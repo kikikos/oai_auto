@@ -18,6 +18,10 @@ ssh_flink = "user@192.168.200.1"
 ssh_ts = "user@192.168.200.2"
 ssh_oai = "user@192.168.200.3"
 
+oai_ip ="192.168.200.3"
+flink_ip ="192.168.200.1"
+tensorflow_ip ="192.168.200.2"
+
 args=""
 kafka_conf=""
 is_kill_all_oai = False
@@ -128,10 +132,10 @@ def kill_pid(pid):
     cmd ='ssh user@192.168.200.3 sudo kill '+pid
     exe_cmd(cmd)
 
-def get_pids(grep_item):
+def get_pids(grep_item, service_ip):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy()) #handle no known_hosts error
-    ssh.connect('192.168.200.3', username='user', password=oai_password)
+    ssh.connect(service_ip, username='user', password=oai_password)
     stdin, stdout, stderr = ssh.exec_command("ps aux | grep "+grep_item+" | grep -v grep | awk '{print $2}'")
     #stdin.write('mme pids:\n')
     stdin.flush()
@@ -143,23 +147,33 @@ def get_pids(grep_item):
 
     return pids
 
-    
+def kill_zookeeper():
+    print("killing zookeeper..")
+    for pid in get_pids("zookeeper.properties", oai_ip):
+        cmd = 'ssh ' + ssh_oai + ' "sudo kill ' + pid + '"'
+        exe_cmd(cmd)    
+
+def kill_brokers():
+    print("killing brokers..")
+    for pid in get_pids("server.properties", oai_ip):
+        cmd = 'ssh ' + ssh_oai + ' "sudo kill ' + pid + '"'
+        exe_cmd(cmd)
 
 def kill_mme():
     print("killing mme..")
-    for pid in get_pids("mme"):
+    for pid in get_pids("mme", oai_ip):
         cmd = 'ssh ' + ssh_oai + ' "sudo kill ' + pid + '"'
         exe_cmd(cmd)
 
 def kill_spgw():
     print("killing spgw..")
-    for pid in get_pids("spgw"):
+    for pid in get_pids("spgw", oai_ip):
         cmd = 'ssh ' + ssh_oai + ' "sudo kill ' + pid + '"'
         exe_cmd(cmd)
 
 def kill_hss():
     print("killing hss..")
-    for pid in get_pids("hss"):
+    for pid in get_pids("hss", oai_ip):
         cmd = 'ssh ' + ssh_oai + ' "sudo kill ' + pid + '"'
         exe_cmd(cmd)
 
@@ -170,8 +184,20 @@ def kill_epc():
 
 def kill_enb():
     print("killing enb..")
-    for pid in get_pids("lte-softmodem"):
+    for pid in get_pids("lte-softmodem", oai_ip):
         cmd = 'ssh ' + ssh_oai + ' "sudo kill ' + pid + '"'
+        exe_cmd(cmd)
+
+def kill_flink():
+    print("killing flink..")
+    for pid in get_pids("java", flink_ip):
+        cmd = 'ssh ' + ssh_flink + ' "echo password | sudo -S kill ' + pid + '"'
+        exe_cmd(cmd)
+
+def kill_tensorflow():
+    print("killing tensorflow..")
+    for pid in get_pids("python", tensorflow_ip):
+        cmd = 'ssh ' + ssh_ts + ' "echo password | sudo -S kill ' + pid + '"'
         exe_cmd(cmd)
 
 def kill_oai():
@@ -183,30 +209,45 @@ def run_oai():
     run_enb()
 
 def run_nc():
-    cmd = 'xterm -T \"nc\" -e ssh ' +  ssh_oai +' "nc -t localhost 60000" &'
+    cmd = 'xterm -T \"nc\" -hold -e ssh ' +  ssh_oai +' "nc -t localhost 60000" &'
     exe_cmd(cmd)
 
 def main(args):
 
-    if args.kill_all_oai == "true" or args.kill_all_oai == "t":
+    if args.kill_all_oai == "true" or args.kill_all_oai == "t" or args.kill_all =="true" or args.kill_all =="t":
         kill_oai()
     else:
         run_oai()
 
-    if not (args.run_zookeeper == "false" or args.run_zookeeper == "f"):
+    if  (args.run_zookeeper == "false" or args.run_zookeeper == "f") or (args.kill_zookeeper == "true" or args.kill_zookeeper == "t") or args.kill_all =="true" or args.kill_all =="t":
+        pass
+    else:
+        time.sleep(2)
         run_zookeeper()
 
-    if not (args.run_kafka == "false" or args.run_kafka == "f"):
+    if (args.run_kafka == "false" or args.run_kafka == "f") or (args.kill_brokers =="true" or args.kill_brokers =="t") or args.kill_all =="true" or args.kill_all =="t":
+        kill_brokers()
+        time.sleep(3)
+        kill_zookeeper()
+    else:
+        time.sleep(2)
         run_brokers()
-    
-    if not (args.run_nc == "false" or args.run_nc == "f"):
-        run_nc()
         
-    if not(args.run_flink_app == "false" or args.run_flink_app == "f"):
+    if (args.run_flink_app == "false" or args.run_flink_app == "f") or (args.kill_flink =="true" or args.kill_flink =="t") or args.kill_all =="true" or args.kill_all =="t":
+        kill_flink()
+    else: 
+        time.sleep(3)   
         run_flink_app()
 
-    if not(args.run_tensorflow == "false" or args.run_tensorflow == "f"):
+    if (args.run_tensorflow == "false" or args.run_tensorflow == "f") or (args.kill_tensorflow == "true" or args.kill_tensorflow == "t") or args.kill_all =="true" or args.kill_all =="t":
+        kill_tensorflow()
+    else:
+        time.sleep(3)
         run_tensorflow()
+
+    if not (args.run_nc == "false" or args.run_nc == "f" or args.kill_all =="true" or args.kill_all =="t"):
+        time.sleep(3)
+        run_nc()
 
     
 
@@ -230,7 +271,17 @@ def main(args):
 
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--kill_all","-kall",help="kill all services: -kall true/t ")
+
     parser.add_argument("--kill_all_oai","-kao",help="kill all aoi: epc and enb: -kao t or -kao true")
+    parser.add_argument("--kill_zookeeper","-kz",help="kill zookeeper: -kz t or -kz true")
+    parser.add_argument("--kill_brokers","-kb",help="kill brokers: -kb t or -kb true")
+    parser.add_argument("--kill_nc","-knc",help="kill nc: -knc t or -knc true")
+
+    parser.add_argument("--kill_flink","-kf",help="kill flink app: -kf t or -kf true")
+    parser.add_argument("--kill_tensorflow","-kts",help="kill tensorflow: -kts t ")
+
+
     parser.add_argument("--run_all_oai","-rao",help="run all aoi: epc and enb") #remove
     parser.add_argument("--run_zookeeper","-rz",help="run zookeeper -rk true/t")
     parser.add_argument("--run_kafka","-rk",help="run kafka -rk t/true")
