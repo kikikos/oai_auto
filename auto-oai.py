@@ -30,7 +30,7 @@ def exe_cmd(cmd):
         
     except:    
         print("errno_num")
-
+"""
 def run_kafka(args):
     cmd_zk = "xterm -hold -e "
     cmd_zk += args.kafkaDir + "/bin/zookeeper-server-start.sh "
@@ -53,6 +53,7 @@ def run_kafka(args):
     exe_cmd(cmd_consumer)
     time.sleep(2)
     exe_cmd(cmd_producer)
+"""
 
 def run_mme():
     cmd = 'xterm  -T "mme" -e ssh ' + ssh_oai + ' "/home/user/openair-cn/scripts/run_mme" &'
@@ -86,33 +87,39 @@ def run_enb():
     exe_cmd(cmd)
 
 
-def run_zookeeper():        
-    cmd = "xterm  -T \"zookeeper\" -hold -e "
-    cmd += args.kafkaDir + "/bin/zookeeper-server-start.sh "
-    cmd += args.kafkaDir + "/config/zookeeper.properties &"
+def run_zookeeper():
+    kfk_dir = '~/app/kafka_2.11-2.1.0'
+    cmd = 'xterm  -T \"zookeeper\" -e ssh ' + ssh_oai +' "'
+    cmd += kfk_dir + '/bin/zookeeper-server-start.sh '
+    cmd += kfk_dir + '/config/zookeeper.properties" &'
     exe_cmd(cmd)
 
 def run_brokers():
-    cmd = "xterm  -T \"broker\"  -hold -e "
-    cmd += args.kafkaDir + "/bin/kafka-server-start.sh "
-    cmd += args.kafkaDir + "/config/server.properties &"
+    kfk_dir = '~/app/kafka_2.11-2.1.0'
+    cmd = 'xterm  -T \"broker\" -e ssh ' + ssh_oai +' "'
+    cmd += kfk_dir + '/bin/kafka-server-start.sh '
+    cmd += kfk_dir + '/config/server.properties" &'
     exe_cmd(cmd)
 
-def run_producer():        
-    cmd = "xterm -T \"producer\" -hold -e "
-    cmd += args.kafkaDir + "/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic "+ args.kafkaTopic +"&"
+def run_producer():
+    kfk_dir = '~/app/kafka_2.11-2.1.0'
+    cmd = 'xterm -T \"producer\" -e ssh ' +  ssh_oai +' "'
+    cmd += kfk_dir + '/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic '+ "oai" +'&'
     exe_cmd(cmd)
 
 def run_consumer():
-    cmd = "xterm  -T \"consumer\"  -hold -e "
-    cmd += args.kafkaDir + "/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic "+ args.kafkaTopic +"&"
+    kfk_dir = '~/app/kafka_2.11-2.1.0'
+    cmd = 'xterm  -T \"consumer\"  -e '
+    cmd += kfk_dir + '/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic '+ "oai" +'&'
     exe_cmd(cmd)
 
 def run_flink_app():
-    pass
+    cmd = 'xterm  -T \"flink\" -e ssh ' + ssh_flink +' "cd workspace/spaas;java -Dlog4j.configurationFile="./conf/log4j2.xml" -jar target/FlinkAverager.jar --input-topic oai --output-topic oai-ts --bootstrap.servers 192.168.200.3:9092 --zookeeper.connect 192.168.200.3:2181 --group.id oai --thread.nums 2" &'
+    exe_cmd(cmd)
 
-def run_ts():
-    pass
+def run_tensorflow():
+    cmd = 'xterm  -T \"tensorflow\" -e ssh ' + ssh_ts +' "cd workspace/spaas/ts;python linreg.py" &'
+    exe_cmd(cmd)    
 
 def run_ws():
     pass
@@ -175,8 +182,9 @@ def run_oai():
     run_epc()
     run_enb()
 
-    #run_zookeeper()
-    #run_brokers()
+def run_nc():
+    cmd = 'xterm -T \"nc\" -e ssh ' +  ssh_oai +' "nc -t localhost 60000" &'
+    exe_cmd(cmd)
 
 def main(args):
 
@@ -184,6 +192,23 @@ def main(args):
         kill_oai()
     else:
         run_oai()
+
+    if not (args.run_zookeeper == "false" or args.run_zookeeper == "f"):
+        run_zookeeper()
+
+    if not (args.run_kafka == "false" or args.run_kafka == "f"):
+        run_brokers()
+    
+    if not (args.run_nc == "false" or args.run_nc == "f"):
+        run_nc()
+        
+    if not(args.run_flink_app == "false" or args.run_flink_app == "f"):
+        run_flink_app()
+
+    if not(args.run_tensorflow == "false" or args.run_tensorflow == "f"):
+        run_tensorflow()
+
+    
 
     """
     if args.runZookeeper==None or args.runZookeeper=="true":
@@ -203,25 +228,26 @@ def main(args):
         time.sleep(1)
     """
 
-    if is_run_flink:
-        pass
-    
-    if is_run_ts:
-        pass
-
-
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--kill_all_oai","-kao",help="kill all aoi: epc and enb: -kao t or -kao true")
+    parser.add_argument("--run_all_oai","-rao",help="run all aoi: epc and enb") #remove
+    parser.add_argument("--run_zookeeper","-rz",help="run zookeeper -rk true/t")
+    parser.add_argument("--run_kafka","-rk",help="run kafka -rk t/true")
+    parser.add_argument("--run_nc","-rnc",help="run netcate -nc t/true")
+    parser.add_argument("--run_flink_app","-rfa",help="run flink app -rfa t/true")
+    parser.add_argument("--run_tensorflow","-rts",help="run tensorflow -rts t/true")
+
     parser.add_argument("--kafkaDir","-dir",help="root directory of Kafka")
     parser.add_argument("--runZookeeper","-zookeeper",help="run zookeeper")
     parser.add_argument("--runBrokers","-brokers", help="run brokers")
     parser.add_argument("--runProduer","-produer",help="run producer")
     parser.add_argument("--runConsumer","-consumer",help="run consumer")
     parser.add_argument("--kafkaTopic","-topic",help="Kafka topic")
+    
     parser.add_argument("--spgwNic","-nic",help="network interface for spgw")
     parser.add_argument("--enb","-e",help="enb autorun")
-    parser.add_argument("--kill_all_oai","-kao",help="kill all aoi: epc and enb: -kao t or -kao true")
-    parser.add_argument("--run_all_oai","-rao",help="run all aoi: epc and enb")
+    
 
     args = parser.parse_args()
 
