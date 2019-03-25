@@ -209,21 +209,77 @@ def run_oai():
     run_enb()
 
 def run_nc():
-    cmd = 'xterm -T \"nc\" -hold -e ssh ' +  ssh_oai +' "nc -t localhost 60000" &'
+    #cmd = 'xterm -T \"nc\" -hold -e ssh ' +  ssh_oai +' "nc -t localhost 60000" &'
+    cmd = "nc -t 192.168.200.3 60000"
     exe_cmd(cmd)
 
 def main(args):
 
-    if args.kill_all_oai == "true" or args.kill_all_oai == "t" or args.kill_all =="true" or args.kill_all =="t":
-        kill_oai()
-    else:
+    if args.run_all_oai:
         run_oai()
 
-    if  (args.run_zookeeper == "false" or args.run_zookeeper == "f") or (args.kill_zookeeper == "true" or args.kill_zookeeper == "t") or args.kill_all =="true" or args.kill_all =="t":
-        pass
-    else:
-        time.sleep(2)
+    if args.run_epc:
+        run_epc()
+    
+    if args.run_enb:
+        run_enb()
+
+    if  args.run_zookeeper :  #"false" or args.run_zookeeper == "f") or (args.kill_zookeeper == "true" or args.kill_zookeeper == "t") or args.kill_all =="true" or args.kill_all =="t":
         run_zookeeper()
+        time.sleep(2)
+
+    if args.run_kafka_brokers:
+        run_brokers()
+        time.sleep(2)
+
+    if args.run_flink_app:
+        run_flink_app()
+        time.sleep(3) 
+
+    if args.run_tensorflow:
+        run_tensorflow()
+        time.sleep(2)
+
+    if args.run_nc:
+        print('copy this command: {"req":"CONFIG_PROTO","name":"kafka", "active":"true","period":1}')
+        run_nc()
+
+
+    """
+    Kill services
+    """
+
+    if args.kill_all_oai:
+        kill_oai()
+
+    if args.kill_epc:
+        kill_epc()
+
+    if args.kill_enb:
+        kill_enb()
+
+    if args.kill_zookeeper :
+        kill_brokers()
+        time.sleep(3)
+        kill_zookeeper()
+
+    if args.kill_kafka_brokers :
+        kill_brokers()
+        time.sleep(3)
+
+    if args.kill_tensorflow:
+        kill_tensorflow()
+
+    if args.kill_flink_app:
+        kill_flink()
+
+
+
+ 
+
+        
+        
+    """
 
     if (args.run_kafka == "false" or args.run_kafka == "f") or (args.kill_brokers =="true" or args.kill_brokers =="t") or args.kill_all =="true" or args.kill_all =="t":
         kill_brokers()
@@ -249,52 +305,43 @@ def main(args):
         time.sleep(3)
         run_nc()
 
-    
-
-    """
-    if args.runZookeeper==None or args.runZookeeper=="true":
-        run_zookeeper()    
-        time.sleep(1)
-
-    if args.runBrokers==None or args.runBrokers=="true":
-        run_brokers()    
-        time.sleep(1)
-
-    if args.runProduer != None or args.runBrokers=="true":
-        run_producer()    
-        time.sleep(1)
-
-    if args.runConsumer != None or args.runBrokers=="true":
-        run_consumer()    
-        time.sleep(1)
     """
 
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--kill_all","-kall",help="kill all services: -kall true/t ")
 
-    parser.add_argument("--kill_all_oai","-kao",help="kill all aoi: epc and enb: -kao t or -kao true")
-    parser.add_argument("--kill_zookeeper","-kz",help="kill zookeeper: -kz t or -kz true")
-    parser.add_argument("--kill_brokers","-kb",help="kill brokers: -kb t or -kb true")
-    parser.add_argument("--kill_nc","-knc",help="kill nc: -knc t or -knc true")
+    parser.add_argument("--kill_all_oai","-kao",action='store_true',help="kill all aoi: epc and enb: -kao t or -kao true")
+    parser.add_argument("--kill_zookeeper","-kz",action='store_true',help="kill zookeeper: -kz t or -kz true")
+    parser.add_argument("--kill_kafka_brokers","-kfb",action='store_true',help="kill brokers: -kb t or -kb true")
+    parser.add_argument("--kill_nc","-knc",action='store_true',help="kill nc: -knc t or -knc true")
 
-    parser.add_argument("--kill_flink","-kf",help="kill flink app: -kf t or -kf true")
-    parser.add_argument("--kill_tensorflow","-kts",help="kill tensorflow: -kts t ")
+    parser.add_argument("--kill_epc","-kepc", action='store_true', help="kill epc")
+    parser.add_argument("--kill_enb","-kenb", action='store_true', help="kill enb")
+
+    parser.add_argument("--kill_flink_app","-kfa",action='store_true',help="kill flink app: -kf t or -kf true")
+    parser.add_argument("--kill_tensorflow","-kts",action='store_true',help="kill tensorflow: -kts t ")
 
 
-    parser.add_argument("--run_all_oai","-rao",help="run all aoi: epc and enb") #remove
-    parser.add_argument("--run_zookeeper","-rz",help="run zookeeper -rk true/t")
-    parser.add_argument("--run_kafka","-rk",help="run kafka -rk t/true")
-    parser.add_argument("--run_nc","-rnc",help="run netcate -nc t/true")
-    parser.add_argument("--run_flink_app","-rfa",help="run flink app -rfa t/true")
-    parser.add_argument("--run_tensorflow","-rts",help="run tensorflow -rts t/true")
+    parser.add_argument("--run_all_oai","-rao", action='store_true', help="run all aoi: epc and enb")
+    parser.add_argument("--run_epc","-repc", action='store_true', help="run epc")
+    parser.add_argument("--run_enb","-renb", action='store_true', help="run enb")
+    
+    parser.add_argument("--run_zookeeper","-rz", action='store_true', help="run zookeeper -rk true/t")
+    parser.add_argument("--run_kafka_brokers","-rkb", action='store_true', help="run kafka -rk t/true")
+    
+    parser.add_argument("--run_nc","-rnc", action='store_true',help="run netcate -nc t/true")
+    
+    parser.add_argument("--run_flink_app","-rfa", action='store_true',help="run flink app -rfa t/true")
+    
+    parser.add_argument("--run_tensorflow","-rts", action='store_true',help="run tensorflow -rts t/true")
 
     parser.add_argument("--kafkaDir","-dir",help="root directory of Kafka")
-    parser.add_argument("--runZookeeper","-zookeeper",help="run zookeeper")
-    parser.add_argument("--runBrokers","-brokers", help="run brokers")
-    parser.add_argument("--runProduer","-produer",help="run producer")
-    parser.add_argument("--runConsumer","-consumer",help="run consumer")
-    parser.add_argument("--kafkaTopic","-topic",help="Kafka topic")
+    parser.add_argument("--runZookeeper","-zookeeper", action='store_true',help="run zookeeper")
+    parser.add_argument("--runBrokers","-brokers", action='store_true', help="run brokers")
+    parser.add_argument("--runProduer","-produer", action='store_true',help="run producer")
+    parser.add_argument("--runConsumer","-consumer", action='store_true',help="run consumer")
+    parser.add_argument("--kafkaTopic","-topic", action='store_true',help="Kafka topic")
     
     parser.add_argument("--spgwNic","-nic",help="network interface for spgw")
     parser.add_argument("--enb","-e",help="enb autorun")
