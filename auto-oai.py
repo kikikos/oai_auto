@@ -4,6 +4,7 @@ import argparse
 import time
 import subprocess
 import paramiko
+import socket
 
 is_run_flink=True
 is_run_ts=True
@@ -14,9 +15,11 @@ kafka_cmd=""
 cmd = "ls"
 oai_password="password"
 
+oai_ip ="192.168.200.3"
+
 ssh_flink = "user@192.168.200.1"
 ssh_ts = "user@192.168.200.2"
-ssh_oai = "user@192.168.200.3"
+ssh_oai = "user@"+ oai_ip
 
 oai_ip ="192.168.200.3"
 flink_ip ="192.168.200.1"
@@ -128,6 +131,49 @@ def run_tensorflow():
 def run_ws():
     pass
 
+def run_nc():
+    #cmd = 'xterm -T \"nc\" -hold -e ssh ' +  ssh_oai +' "nc -t localhost 60000" &'
+    """
+    print('copy this command: {"req":"CONFIG_PROTO","name":"kafka", "active":"true","period":1}')
+    cmd = "nc -t 192.168.200.3 60000"
+    exe_cmd(cmd)
+    """
+    SERVER_IP=oai_ip
+    SERVER_PORT = 60000
+    BUFFER_SIZE = 1024
+    req = '{"req":"CONFIG_PROTO","name":"kafka", "active":"true","period":1}'
+    
+    
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((SERVER_IP, SERVER_PORT))
+    s.send(req)
+    data = s.recv(BUFFER_SIZE)
+    s.close()
+    print ("Server: ", data)
+
+
+    
+def run_oai():
+    run_epc()
+    run_enb()
+
+def run_all():
+    run_oai()
+    run_zookeeper()
+    time.sleep(2)
+
+    run_brokers()
+    time.sleep(2)
+
+    run_flink_app()
+    time.sleep(3)
+
+    run_tensorflow()
+    time.sleep(2)
+
+    run_nc()
+
+
 def kill_pid(pid):
     cmd ='ssh user@192.168.200.3 sudo kill '+pid
     exe_cmd(cmd)
@@ -204,16 +250,26 @@ def kill_oai():
     kill_epc()
     kill_enb()
 
-def run_oai():
-    run_epc()
-    run_enb()
 
-def run_nc():
-    #cmd = 'xterm -T \"nc\" -hold -e ssh ' +  ssh_oai +' "nc -t localhost 60000" &'
-    cmd = "nc -t 192.168.200.3 60000"
-    exe_cmd(cmd)
+def kill_all():
+    kill_tensorflow()
+    time.sleep(1)
+    kill_flink()
+    time.sleep(2)
+
+    kill_oai()
+    time.sleep(2)
+
+    kill_brokers()
+    time.sleep(4)
+    kill_zookeeper()
+    time.sleep(1)
+
 
 def main(args):
+    
+    if args.run_all:
+        run_all()
 
     if args.run_all_oai:
         run_oai()
@@ -229,6 +285,11 @@ def main(args):
         time.sleep(2)
 
     if args.run_kafka_brokers:
+        """
+        brokers depend on zookeeper
+        """
+        run_zookeeper()
+        time.sleep(2)
         run_brokers()
         time.sleep(2)
 
@@ -241,13 +302,15 @@ def main(args):
         time.sleep(2)
 
     if args.run_nc:
-        print('copy this command: {"req":"CONFIG_PROTO","name":"kafka", "active":"true","period":1}')
         run_nc()
 
 
     """
     Kill services
     """
+    if args.kill_all:
+        kill_all()
+
 
     if args.kill_all_oai:
         kill_oai()
@@ -274,42 +337,25 @@ def main(args):
         kill_flink()
 
 
-
- 
-
-        
-        
-    """
-
-    if (args.run_kafka == "false" or args.run_kafka == "f") or (args.kill_brokers =="true" or args.kill_brokers =="t") or args.kill_all =="true" or args.kill_all =="t":
-        kill_brokers()
-        time.sleep(3)
-        kill_zookeeper()
-    else:
-        time.sleep(2)
-        run_brokers()
-        
-    if (args.run_flink_app == "false" or args.run_flink_app == "f") or (args.kill_flink =="true" or args.kill_flink =="t") or args.kill_all =="true" or args.kill_all =="t":
-        kill_flink()
-    else: 
-        time.sleep(3)   
-        run_flink_app()
-
-    if (args.run_tensorflow == "false" or args.run_tensorflow == "f") or (args.kill_tensorflow == "true" or args.kill_tensorflow == "t") or args.kill_all =="true" or args.kill_all =="t":
-        kill_tensorflow()
-    else:
-        time.sleep(3)
-        run_tensorflow()
-
-    if not (args.run_nc == "false" or args.run_nc == "f" or args.kill_all =="true" or args.kill_all =="t"):
-        time.sleep(3)
-        run_nc()
-
-    """
-
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--kill_all","-kall",help="kill all services: -kall true/t ")
+
+    parser.add_argument("--run_all","-rall", action='store_true', help="run all")
+  
+    parser.add_argument("--run_all_oai","-rao", action='store_true', help="run all aoi: epc and enb")
+    parser.add_argument("--run_epc","-repc", action='store_true', help="run epc")
+    parser.add_argument("--run_enb","-renb", action='store_true', help="run enb")
+    
+    parser.add_argument("--run_zookeeper","-rz", action='store_true', help="run zookeeper -rk true/t")
+    parser.add_argument("--run_kafka_brokers","-rkb", action='store_true', help="run kafka -rk t/true")
+    
+    parser.add_argument("--run_nc","-rnc", action='store_true',help="run netcate -nc t/true")
+    
+    parser.add_argument("--run_flink_app","-rfa", action='store_true',help="run flink app -rfa t/true")
+    
+    parser.add_argument("--run_tensorflow","-rts", action='store_true',help="run tensorflow -rts t/true")
+    
+    parser.add_argument("--kill_all","-kall", action='store_true',help="kill all services: -kall true/t ")
 
     parser.add_argument("--kill_all_oai","-kao",action='store_true',help="kill all aoi: epc and enb: -kao t or -kao true")
     parser.add_argument("--kill_zookeeper","-kz",action='store_true',help="kill zookeeper: -kz t or -kz true")
@@ -323,19 +369,6 @@ if __name__ =="__main__":
     parser.add_argument("--kill_tensorflow","-kts",action='store_true',help="kill tensorflow: -kts t ")
 
 
-    parser.add_argument("--run_all_oai","-rao", action='store_true', help="run all aoi: epc and enb")
-    parser.add_argument("--run_epc","-repc", action='store_true', help="run epc")
-    parser.add_argument("--run_enb","-renb", action='store_true', help="run enb")
-    
-    parser.add_argument("--run_zookeeper","-rz", action='store_true', help="run zookeeper -rk true/t")
-    parser.add_argument("--run_kafka_brokers","-rkb", action='store_true', help="run kafka -rk t/true")
-    
-    parser.add_argument("--run_nc","-rnc", action='store_true',help="run netcate -nc t/true")
-    
-    parser.add_argument("--run_flink_app","-rfa", action='store_true',help="run flink app -rfa t/true")
-    
-    parser.add_argument("--run_tensorflow","-rts", action='store_true',help="run tensorflow -rts t/true")
-
     parser.add_argument("--kafkaDir","-dir",help="root directory of Kafka")
     parser.add_argument("--runZookeeper","-zookeeper", action='store_true',help="run zookeeper")
     parser.add_argument("--runBrokers","-brokers", action='store_true', help="run brokers")
@@ -348,8 +381,8 @@ if __name__ =="__main__":
     
 
     args = parser.parse_args()
-
-
+    
+    
     if args.kafkaDir==None:
         args.kafkaDir = "~/app/kafka_2.11-2.1.0"
     
