@@ -61,6 +61,17 @@ def run_kafka(args):
     time.sleep(2)
     exe_cmd(cmd_producer)
 """
+def send_tcp_req(req):
+    SERVER_IP=oai_ip
+    SERVER_PORT = 60000
+    BUFFER_SIZE = 1024
+    
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((SERVER_IP, SERVER_PORT))
+    s.send(req)
+    data = s.recv(BUFFER_SIZE)
+    s.close()
+    print ("Server feedback: ", data)
 
 def run_mme():
     cmd = 'xterm  -T "mme" -e ssh ' + ssh_oai + ' "/home/user/openair-cn/scripts/run_mme" &'
@@ -138,6 +149,9 @@ def run_nc():
     cmd = "nc -t 192.168.200.3 60000"
     exe_cmd(cmd)
     """
+    req = '{"req":"CONFIG_PROTO","name":"kafka", "active":"true","period":1}'
+    send_tcp_req(req)
+    """
     SERVER_IP=oai_ip
     SERVER_PORT = 60000
     BUFFER_SIZE = 1024
@@ -150,9 +164,8 @@ def run_nc():
     data = s.recv(BUFFER_SIZE)
     s.close()
     print ("Server: ", data)
+    """
 
-
-    
 def run_oai():
     run_epc()
     run_enb()
@@ -250,6 +263,10 @@ def kill_oai():
     kill_epc()
     kill_enb()
 
+def kill_nc():
+    req='{"req":"CONFIG_PROTO","name":"kafka", "active":"false"}'
+    send_tcp_req(req)
+    
 
 def kill_all():
     kill_tensorflow()
@@ -303,6 +320,9 @@ def main(args):
 
     if args.run_nc:
         run_nc()
+
+    if args.kill_nc:
+        kill_nc()
 
 
     """
@@ -360,13 +380,14 @@ if __name__ =="__main__":
     parser.add_argument("--kill_all_oai","-kao",action='store_true',help="kill all aoi: epc and enb: -kao t or -kao true")
     parser.add_argument("--kill_zookeeper","-kz",action='store_true',help="kill zookeeper: -kz t or -kz true")
     parser.add_argument("--kill_kafka_brokers","-kfb",action='store_true',help="kill brokers: -kb t or -kb true")
-    parser.add_argument("--kill_nc","-knc",action='store_true',help="kill nc: -knc t or -knc true")
 
     parser.add_argument("--kill_epc","-kepc", action='store_true', help="kill epc")
     parser.add_argument("--kill_enb","-kenb", action='store_true', help="kill enb")
 
-    parser.add_argument("--kill_flink_app","-kfa",action='store_true',help="kill flink app: -kf t or -kf true")
-    parser.add_argument("--kill_tensorflow","-kts",action='store_true',help="kill tensorflow: -kts t ")
+    parser.add_argument("--kill_flink_app","-kfa",action='store_true',help="kill flink app: -kf")
+    parser.add_argument("--kill_tensorflow","-kts",action='store_true',help="kill tensorflow: -kts")
+
+    parser.add_argument("--kill_nc","-knc",action='store_true',help="stop aoi kafak via tcp")
 
 
     parser.add_argument("--kafkaDir","-dir",help="root directory of Kafka")
