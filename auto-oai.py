@@ -16,14 +16,13 @@ cmd = "ls"
 oai_password="password"
 
 oai_ip ="192.168.200.3"
-
-ssh_flink = "user@192.168.200.1"
-ssh_ts = "user@192.168.200.2"
-ssh_oai = "user@"+ oai_ip
-
-oai_ip ="192.168.200.3"
 flink_ip ="192.168.200.1"
 tensorflow_ip ="192.168.200.2"
+
+ssh_flink = ""#"user@" + flink_ip
+ssh_ts = ""#"user@"+ tensorflow_ip
+ssh_oai = ""#"user@"+ oai_ip
+
 
 args=""
 kafka_conf=""
@@ -65,13 +64,18 @@ def send_tcp_req(req):
     SERVER_IP=oai_ip
     SERVER_PORT = 60000
     BUFFER_SIZE = 1024
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((SERVER_IP, SERVER_PORT))
+        s.send(req)
+        print ("senr req to ", SERVER_IP, ": ", req)
+        data = s.recv(BUFFER_SIZE)
+        s.close()
+        print ("Server feedback: ", data)
+    except Exception as e:
+        print(e)
     
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((SERVER_IP, SERVER_PORT))
-    s.send(req)
-    data = s.recv(BUFFER_SIZE)
-    s.close()
-    print ("Server feedback: ", data)
+    
 
 def run_mme():
     cmd = 'xterm  -T "mme" -e ssh ' + ssh_oai + ' "/home/user/openair-cn/scripts/run_mme" &'
@@ -89,7 +93,7 @@ def run_spgw():
 
 
 def run_epc():
-    cmd = "ssh user@192.168.200.3 'source /home/user/openair-cn/oaienv'"
+    cmd = "ssh "+ssh_oai+" 'source /home/user/openair-cn/oaienv'"
     exe_cmd(cmd)
     time.sleep(1)
     
@@ -132,7 +136,7 @@ def run_consumer():
     exe_cmd(cmd)
 
 def run_flink_app():
-    cmd = 'xterm  -T \"flink\" -e ssh ' + ssh_flink +' "cd workspace/spaas;java -Dlog4j.configurationFile="./conf/log4j2.xml" -jar target/FlinkAverager.jar --input-topic oai --output-topic oai-ts --bootstrap.servers 192.168.200.3:9092 --zookeeper.connect 192.168.200.3:2181 --group.id oai --thread.nums 2" &'
+    cmd = 'xterm  -T \"flink\" -e ssh ' + ssh_flink +' "cd workspace/spaas;java -Dlog4j.configurationFile="./conf/log4j2.xml" -jar target/FlinkAverager.jar --input-topic oai --output-topic oai-ts --bootstrap.servers '+oai_ip+':9092 --zookeeper.connect '+oai_ip+':2181 --group.id oai --thread.nums 2" &'
     exe_cmd(cmd)
 
 def run_tensorflow():
@@ -188,7 +192,7 @@ def run_all():
 
 
 def kill_pid(pid):
-    cmd ='ssh user@192.168.200.3 sudo kill '+pid
+    cmd ='ssh '+  ssh_oai +' sudo kill '+pid
     exe_cmd(cmd)
 
 def get_pids(grep_item, service_ip):
@@ -215,7 +219,7 @@ def kill_zookeeper():
 def kill_brokers():
     print("killing brokers..")
     for pid in get_pids("server.properties", oai_ip):
-        cmd = 'ssh ' + ssh_oai + ' "sudo kill ' + pid + '"'
+        cmd = 'ssh ' + ssh_oai + ' "sudo kill -9 ' + pid + '"'
         exe_cmd(cmd)
 
 def kill_mme():
@@ -278,7 +282,7 @@ def kill_all():
     time.sleep(2)
 
     kill_brokers()
-    time.sleep(4)
+    time.sleep(5)
     kill_zookeeper()
     time.sleep(1)
 
@@ -358,6 +362,7 @@ def main(args):
 
 
 if __name__ =="__main__":
+    
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--run_all","-rall", action='store_true', help="run all")
@@ -399,11 +404,23 @@ if __name__ =="__main__":
     
     parser.add_argument("--spgwNic","-nic",help="network interface for spgw")
     parser.add_argument("--enb","-e",help="enb autorun")
-    
 
+    parser.add_argument("--oai_ip","-oip",help="OAI ip")
+    parser.add_argument("--flink_ip","-fip",help="flink ip")
+    parser.add_argument("--tensorflow_ip","-tsip",help="tensorflow ip")
+
+    
     args = parser.parse_args()
     
-    
+    if not args.oai_ip ==None:
+        oai_ip = args.oai_ip
+
+    if not args.flink_ip==None:
+        flink_ip= args.flink_ip
+
+    if not args.tensorflow_ip == None:
+        tensorflow_ip= args.tensorflow_ip
+
     if args.kafkaDir==None:
         args.kafkaDir = "~/app/kafka_2.11-2.1.0"
     
@@ -412,6 +429,10 @@ if __name__ =="__main__":
 
     if args.spgwNic == None:
         args.spgwNic = "wlp2s0"
+
+    ssh_flink = "user@" + flink_ip
+    ssh_ts = "user@"+ tensorflow_ip
+    ssh_oai = "user@"+ oai_ip
     
     
     main(args)
