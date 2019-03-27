@@ -177,10 +177,10 @@ def run_oai():
 def run_all():
     run_oai()
     run_zookeeper()
-    time.sleep(2)
+    time.sleep(5)
 
     run_brokers()
-    time.sleep(2)
+    time.sleep(3)
 
     run_flink_app()
     time.sleep(3)
